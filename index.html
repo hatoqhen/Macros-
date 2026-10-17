@@ -1,0 +1,292 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Macro Tracker</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a week header, a toolbar, daily targets, a summary grid and a day-by-day log stacked for phone width.
+   Matt black finish: near-black ground, no gloss or shadows, flat surfaces separated by hairline borders.
+   A muted sage accent, with warm amber only where a value falls outside the highlight band. */
+:root{
+  --bg:#0B0B0B;--surface:#151515;--ink:#E4E4E2;--muted:#7C7E7D;--line:#262626;
+  --accent:#8FD3B4;--accent-soft:#1B2A23;--on-accent:#0B0B0B;
+  --warn:#FF7D6B;--warn-soft:#3A1C17;
+  --m-cal:#7FB3F2;--m-p:#86DBAA;--m-c:#F4CD6C;--m-f:#F4A3C4;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#F2F2F0;--surface:#FFFFFF;--ink:#161816;--muted:#6B6E6C;--line:#DEDEDA;
+    --accent:#23664F;--accent-soft:#E2EBE6;--on-accent:#FFFFFF;
+    --warn:#B23A1E;--warn-soft:#FBE0D6;
+    --m-cal:#2A5FA8;--m-p:#237A4E;--m-c:#8F6400;--m-f:#A9396E;
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#F2F2F0;--surface:#FFFFFF;--ink:#161816;--muted:#6B6E6C;--line:#DEDEDA;
+  --accent:#23664F;--accent-soft:#E2EBE6;--on-accent:#FFFFFF;
+  --warn:#B23A1E;--warn-soft:#FBE0D6;
+  --m-cal:#2A5FA8;--m-p:#237A4E;--m-c:#8F6400;--m-f:#A9396E;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.4;
+  padding-block:16px 32px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:720px;margin:0 auto;min-width:0}
+.eyebrow{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:22px;margin:4px 0 14px;font-weight:600;text-wrap:balance}
+.range{color:var(--muted);font-weight:400;font-size:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;min-width:0}
+.card h2{font-size:13px;margin:0 0 10px;font-weight:600}
+.sect{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:20px 2px 8px}
+.toolbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.grow{flex:1 1 180px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+.field.inline{flex-direction:row;align-items:center;justify-content:space-between;margin-top:12px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input,select{
+  width:100%;min-width:0;min-height:44px;padding:10px 12px;border-radius:10px;
+  font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);
+  -webkit-appearance:none;appearance:none;
+}
+input{font-family:var(--mono);font-variant-numeric:tabular-nums}
+select{font-family:var(--sans)}
+input.over{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);font-weight:600}
+button{
+  font:inherit;font-weight:600;font-size:15px;min-height:44px;padding:0 16px;border:0;border-radius:10px;
+  background:var(--accent);color:var(--on-accent);cursor:pointer;white-space:nowrap;
+}
+button:active{opacity:.85}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.mcard h3{margin:0 0 6px;font-size:15px;font-weight:600}
+.mcard h3 small{color:var(--muted);font-weight:400;font-size:12px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--muted);min-width:0}
+.val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500;padding:1px 6px;border-radius:6px;white-space:nowrap}
+.val.over{background:var(--warn-soft);color:var(--warn);font-weight:600}
+.day h3{margin:0 0 10px;font-size:15px;font-weight:600}
+.mcard h3::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--mc);margin-right:8px;vertical-align:middle}
+.mcard .row .val{color:var(--mc)}
+.mcard .row .val.over{color:var(--warn)}
+.field > span{color:var(--mc,var(--muted));font-weight:600}
+input:focus{border-color:var(--mc,var(--accent))}
+.eyebrow{color:var(--accent)}
+</style>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Macro tracker</p>
+    <h1><span id="weekTitle"></span> <span id="weekRange" class="range"></span></h1>
+  </header>
+
+  <section class="card toolbar">
+    <label class="field grow"><span>Week</span><select id="weekSel"></select></label>
+    <button id="newWeek" type="button">Start new week</button>
+  </section>
+
+  <section class="card">
+    <h2>Daily targets</h2>
+    <div class="fields">
+      <label class="field"><span>Calories (kcal)</span><input id="t-cal" data-t="cal" type="number" inputmode="numeric" min="0"></label>
+      <label class="field"><span>Protein (g)</span><input id="t-p" data-t="p" type="number" inputmode="decimal" min="0"></label>
+      <label class="field"><span>Carbs (g)</span><input id="t-c" data-t="c" type="number" inputmode="decimal" min="0"></label>
+      <label class="field"><span>Fat (g)</span><input id="t-f" data-t="f" type="number" inputmode="decimal" min="0"></label>
+    </div>
+    <label class="field inline"><span>Highlight ± %</span><input id="threshold" type="number" inputmode="numeric" min="0" style="max-width:120px"></label>
+  </section>
+
+  <h2 class="sect">Week summary</h2>
+  <div id="summary" class="summary"></div>
+
+  <h2 class="sect">Daily log</h2>
+  <div id="days"></div>
+</main>
+
+<script>
+const KEY = 'macro-tracker-v1';
+const MACROS = [
+  {k:'cal', n:'Calories', u:'kcal', c:'var(--m-cal)'},
+  {k:'p',   n:'Protein',  u:'g',    c:'var(--m-p)'},
+  {k:'c',   n:'Carbs',    u:'g',    c:'var(--m-c)'},
+  {k:'f',   n:'Fat',      u:'g',    c:'var(--m-f)'}
+];
+const blankDay = () => ({cal:'', p:'', c:'', f:''});
+const $ = id => document.getElementById(id);
+
+function seed(){
+  return {
+    threshold: 30,
+    currentId: 'w1',
+    weeks: [{
+      id: 'w1',
+      start: '2026-10-13',
+      targets: {cal:1790, p:174, c:163, f:46},
+      days: [
+        {cal:1770, p:174, c:173, f:41},
+        {cal:1768, p:174, c:148, f:43},
+        {cal:1797, p:177, c:178, f:42},
+        {cal:1784, p:171, c:173, f:47},
+        blankDay(), blankDay(), blankDay()
+      ]
+    }]
+  };
+}
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if(s && Array.isArray(s.weeks) && s.weeks.length) return s;
+  }catch(e){}
+  return seed();
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+}
+
+let state = load();
+
+const currentWeek = () =>
+  state.weeks.find(w => w.id === state.currentId) || state.weeks[state.weeks.length - 1];
+
+function parse(s){
+  if(s === '' || s == null) return '';
+  const n = parseFloat(s);
+  return isNaN(n) ? '' : n;
+}
+function addDays(iso, n){
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d;
+}
+function fmtDay(iso, i){
+  return addDays(iso, i).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', timeZone:'UTC'});
+}
+function fmtRange(w){ return fmtDay(w.start, 0) + ' – ' + fmtDay(w.start, 6); }
+function num(v){ return Math.round(v).toLocaleString('en-GB'); }
+
+// True when a value sits further than the highlight band away from its target.
+function over(v, t){
+  if(v === '' || v == null || !t) return false;
+  return Math.abs(v - t) / t * 100 > state.threshold;
+}
+
+function stats(w, m){
+  const vals = w.days.map(d => d[m.k]).filter(v => typeof v === 'number');
+  const logged = vals.reduce((a, b) => a + b, 0);
+  const n = vals.length, left = 7 - n;
+  const target = w.targets[m.k], weekTarget = target * 7;
+  const avg = n ? logged / n : null;
+  const need = left ? Math.max(0, (weekTarget - logged) / left) : null;
+  const forecast = n ? logged + avg * left : null;
+  return {target, weekTarget, logged, n, left, avg, need, forecast, fcDay: forecast == null ? null : forecast / 7};
+}
+
+function renderTop(){
+  const w = currentWeek();
+  const idx = state.weeks.indexOf(w);
+  $('weekTitle').textContent = 'Week ' + (idx + 1);
+  $('weekRange').textContent = fmtRange(w);
+  $('weekSel').innerHTML = state.weeks.map((x, i) =>
+    `<option value="${x.id}"${x.id === w.id ? ' selected' : ''}>Week ${i + 1} · ${fmtRange(x)}</option>`
+  ).join('');
+  MACROS.forEach(m => { $('t-' + m.k).value = w.targets[m.k]; });
+  $('threshold').value = state.threshold;
+}
+
+function renderSummary(){
+  const w = currentWeek();
+  $('summary').innerHTML = MACROS.map(m => {
+    const s = stats(w, m);
+    return `<article class="card mcard" style="--mc:${m.c}">
+      <h3>${m.n} <small>target ${num(s.target)} ${m.u}/day</small></h3>
+      <div class="row"><span>Average / day</span><span class="val${over(s.avg, s.target) ? ' over' : ''}">${s.avg == null ? '–' : num(s.avg)}</span></div>
+      <div class="row"><span>Logged so far</span><span class="val">${num(s.logged)} of ${num(s.weekTarget)}</span></div>
+      <div class="row"><span>Days left</span><span class="val">${s.left}</span></div>
+      <div class="row"><span>Need / day</span><span class="val">${s.need == null ? '–' : num(s.need)}</span></div>
+      <div class="row"><span>Forecast avg / day</span><span class="val${over(s.fcDay, s.target) ? ' over' : ''}">${s.fcDay == null ? '–' : num(s.fcDay)}</span></div>
+      <div class="row"><span>Forecast week total</span><span class="val${over(s.forecast, s.weekTarget) ? ' over' : ''}">${s.forecast == null ? '–' : num(s.forecast)}</span></div>
+    </article>`;
+  }).join('');
+}
+
+function renderDays(){
+  const w = currentWeek();
+  $('days').innerHTML = w.days.map((d, i) => `
+    <section class="card day">
+      <h3>${fmtDay(w.start, i)}</h3>
+      <div class="fields">
+        ${MACROS.map(m => `
+          <label class="field" style="--mc:${m.c}"><span>${m.n}</span>
+            <input type="number" step="any" min="0"
+              inputmode="${m.k === 'cal' ? 'numeric' : 'decimal'}"
+              placeholder="${w.targets[m.k]}"
+              value="${d[m.k] ?? ''}"
+              data-i="${i}" data-k="${m.k}"
+              class="${over(d[m.k], w.targets[m.k]) ? 'over' : ''}"
+              aria-label="${m.n}, ${fmtDay(w.start, i)}">
+          </label>`).join('')}
+      </div>
+    </section>`).join('');
+}
+
+// Re-applies highlight classes to every input and refreshes the summary.
+function refreshHighlights(){
+  const w = currentWeek();
+  document.querySelectorAll('#days input[data-k]').forEach(el => {
+    el.classList.toggle('over', over(parse(el.value), w.targets[el.dataset.k]));
+  });
+  renderSummary();
+}
+
+function render(){
+  renderTop();
+  renderSummary();
+  renderDays();
+}
+
+document.addEventListener('input', e => {
+  const el = e.target, w = currentWeek();
+  if(el.dataset.k){
+    w.days[+el.dataset.i][el.dataset.k] = parse(el.value);
+  } else if(el.dataset.t){
+    w.targets[el.dataset.t] = parse(el.value) || 0;
+  } else if(el.id === 'threshold'){
+    state.threshold = parse(el.value) || 0;
+  } else {
+    return;
+  }
+  save();
+  refreshHighlights();
+});
+
+$('weekSel').addEventListener('change', e => {
+  state.currentId = e.target.value;
+  save();
+  render();
+});
+
+$('newWeek').addEventListener('click', () => {
+  const last = state.weeks[state.weeks.length - 1];
+  const start = addDays(last.start, 7).toISOString().slice(0, 10);
+  const w = {
+    id: 'w' + Date.now(),
+    start,
+    targets: {...last.targets},
+    days: [0,1,2,3,4,5,6].map(() => blankDay())
+  };
+  state.weeks.push(w);
+  state.currentId = w.id;
+  save();
+  render();
+  window.scrollTo({top: 0});
+});
+
+render();
+</script>
